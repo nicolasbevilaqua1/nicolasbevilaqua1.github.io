@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bev's FIT</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Estilos personalizados podem ser adicionados aqui */
+        /* Mantive apenas um estilo como exemplo */
+        body {
+            background-color: #f8f9fa;
+        }
+        #counter1 {
+            font-size: 48px; /* Altere o tamanho da fonte conforme desejado */
+        }
+        h1 {
+            font-size: 48px; /* Altere o tamanho da fonte conforme desejado */
+        }
+    </style>
+</head>
+
+<body class="d-flex h-100 text-center text-bg-dark">
+    <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+        <header class="mb-auto">
+            <div>
+                <h3 class="float-md-start mb-0"></h3>
+                <nav class="nav nav-masthead justify-content-center float-md-end">
+
+                </nav>
+            </div>
+        </header>
+
+        <main class="px-3">
+            <h1>Bev's FIT</h1>
+            <p class="lead">Cuide da sua saúde, fique em forma e se sinta bem!
+            <p class="lead">
+
+                <div class="lead mb-3">Que tal alguns polichinelos?</div>
+                <button class="btn btn-primary" type="button" onclick="init()">Começar</button>
+                <div><canvas id="canvas"></canvas></div>
+                <div id="label-container"></div>
+                <div id="counter1">Movimentos: <span id="prediction1-counter">0</span></div>
+                <!-- Adicionando o botão para resetar a contagem -->
+                <button onclick="resetCount()" class="btn btn-primary" type="button">Resetar Contagem</button>
+                <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+                <script type="text/javascript">
+                    const URL = "https://teachablemachine.withgoogle.com/models/pI3fWFn1w/";
+                    let model, webcam, ctx, labelContainer, maxPredictions;
+                    let prediction1Movements = 0;
+                    let previousPrediction = 0;
+                    let cooldownTime = 1100;
+                    let resetTimer;
+
+                    async function init() {
+                        const modelURL = URL + "model.json";
+                        const metadataURL = URL + "metadata.json";
+
+                        model = await tmPose.load(modelURL, metadataURL);
+                        maxPredictions = model.getTotalClasses();
+
+                        const size = 400;
+                        const flip = true;
+                        webcam = new tmPose.Webcam(size, size, flip);
+                        await webcam.setup();
+                        await webcam.play();
+
+                        const canvas = document.getElementById("canvas");
+                        canvas.width = size;
+                        canvas.height = size;
+                        ctx = canvas.getContext("2d");
+                        labelContainer = document.getElementById("label-container");
+                        for (let i = 0; i < maxPredictions; i++) {
+                            labelContainer.appendChild(document.createElement("div"));
+                        }
+
+                        window.requestAnimationFrame(loop);
+                    }
+
+                    async function loop() {
+                        webcam.update();
+                        await predict();
+                        window.requestAnimationFrame(loop);
+                    }
+
+                    async function predict() {
+                        const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+                        const prediction = await model.predict(posenetOutput);
+                        const PREDICTION1_INDEX = 0; // Defina o índice correspondente à Prediction #1
+                        const PREDICTION_THRESHOLD = 0.8; // Ajuste o limiar de confiança conforme necessário
+
+                        if (
+                            prediction[PREDICTION1_INDEX].probability > PREDICTION_THRESHOLD &&
+                            previousPrediction <= 0.3
+                        ) {
+                            updatePrediction1Counter();
+                        }
+
+                        previousPrediction = prediction[PREDICTION1_INDEX].probability;
+
+                        function updatePrediction1Counter() {
+                            prediction1Movements++;
+                            document.getElementById("prediction1-counter").textContent = prediction1Movements;
+                            setTimeout(() => {
+                                // Deve verificar se o último valor de confiança ainda é menor que o limiar
+                                /*if (previousPrediction <= PREDICTION_THRESHOLD) {
+                                    prediction1Movements = 0; // Reseta a contagem após o tempo de espera
+                                    document.getElementById("prediction1-counter").textContent = prediction1Movements;
+                                }*/
+                            }, cooldownTime);
+                        }
+
+                        for (let i = 0; i < maxPredictions; i++) {
+                            const classPrediction =
+                                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                            labelContainer.childNodes[i].innerHTML = classPrediction;
+                        }
+
+                        // finally draw the poses
+                        drawPose(pose);
+                    }
+
+                    function drawPose(pose) {
+                        if (webcam.canvas) {
+                            ctx.drawImage(webcam.canvas, 0, 0);
+                            if (pose) {
+                                const minPartConfidence = 0.5;
+                                tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+                                tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+                            }
+                        }
+                    }
+
+                    async function resetCount() {
+                        // Reinicia a contagem para zero e atualiza o contador
+                        prediction1Movements = 0;
+                        document.getElementById("prediction1-counter").textContent = prediction1Movements;
+                    }
+
+                    // Inicialização
+                    init();
+                </script>
+
+            </p>
+        </main>
+
+        <footer class="mt-auto text-white-50">
+            <p>Desenvolvido por Nicolas Bevilaqua</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
